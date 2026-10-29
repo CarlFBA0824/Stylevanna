@@ -1,0 +1,26 @@
+<!-- SYNTHETIC - NOT a real Stylevana page. Stock Magento 2 product-page markup
+     (swatch-renderer jsonConfig, attribute table) used only to unit-test the
+     parser's logic until a real Stylevana product page is captured. Replace
+     with a real saved page (python scrape.py --url ... --save-html) once
+     available. -->
+<html><body>
+<div class="product-info-main">
+  <h1 class="page-title"><span class="base">Example Brand - Example Lip Tint - 4g</span></h1>
+  <div class="product attribute sku"><div class="value">SKITEXA00001</div></div>
+</div>
+<form id="product_addtocart_form"><input type="hidden" name="product" value="5000"></form>
+<script type="text/x-magento-init">
+{"[data-role=swatch-options]": {"Magento_Swatches/js/swatch-renderer": {"jsonConfig": {
+  "attributes": {"93": {"id": "93", "code": "color", "label": "Color", "options": [
+      {"id": "11", "label": "01 Rose", "products": ["5001"]},
+      {"id": "12", "label": "02 Coral", "products": ["5002"]}]}},
+  "optionPrices": {
+      "5001": {"oldPrice": {"amount": 13}, "basePrice": {"amount": 11.47}, "finalPrice": {"amount": 11.47}},
+      "5002": {"oldPrice": {"amount": 13}, "basePrice": {"amount": 13}, "finalPrice": {"amount": 13}}}
+}}}}
+</script>
+<table id="product-attribute-specs-table"><tbody>
+  <tr><th class="col label">Brand</th><td class="col data">Example Brand</td></tr>
+  <tr><th class="col label">Barcode</th><td class="col data">8809876543210</td></tr>
+</tbody></table>
+</body></html>

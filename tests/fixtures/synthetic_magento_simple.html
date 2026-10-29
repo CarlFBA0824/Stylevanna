@@ -1,0 +1,23 @@
+<!-- SYNTHETIC - NOT a real Stylevana page. Stock Magento 2 simple-product
+     markup (priceBox priceConfig) plus the theme's rrpPrice span seen on real
+     Stylevana listing tiles, and a barcode only mentioned in description
+     text. Unit-tests parser logic only. -->
+<html><body>
+<div class="product-info-main">
+  <h1 class="page-title"><span class="base">Example Brand - Example Sun Serum - 50ml</span></h1>
+  <div class="product attribute sku"><div class="value">SKITEXA00002</div></div>
+  <div class="product-info-price">
+    <span data-price-amount="19" data-price-type="rrpPrice" class="price-wrapper"><span class="price">$19.00</span></span>
+    <span data-price-amount="9.7" data-price-type="finalPrice" class="price-wrapper"><span class="price">$9.70</span></span>
+  </div>
+</div>
+<form id="product_addtocart_form"><input type="hidden" name="product" value="6000"></form>
+<script type="text/x-magento-init">
+{"[data-role=priceBox][data-price-box=product-id-6000]": {"priceBox": {"priceConfig": {
+  "productId": "6000", "priceFormat": {},
+  "prices": {"oldPrice": {"amount": 9.7}, "basePrice": {"amount": 9.7}, "finalPrice": {"amount": 9.7}}}}}}
+</script>
+<div class="product attribute description"><div class="value">
+  <p>Lightweight daily sun serum. Product ID 6000. Barcode: 8801234567890</p>
+</div></div>
+</body></html>
