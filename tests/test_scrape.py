@@ -81,6 +81,36 @@ def test_slug_from_url():
     assert scrape.slug_from_url("https://www.stylevana.com/en_US/makeup/lip/lip-tint.html") == "stylevana_makeup-lip-lip-tint"
 
 
+# --- Product page (REAL Stylevana page, trimmed) ---------------------------
+
+def test_real_configurable_uses_rrp_as_was_price():
+    parsed = scrape.parse_product_page(_read("real_cosdebaha_configurable.html"))
+    assert parsed["name"] == "Cos De BAHA - Azelaic Acid Serum (AZ15) - 30ml"
+    assert parsed["brand"] == "Cos De BAHA"
+    assert parsed["sku"] == "BSSECDB00042"
+    assert parsed["product_id"] == "24288"
+    assert parsed["price_source"] == "configurable_json"
+    [variant] = parsed["variants"]
+    assert variant["child_id"] == "24268"
+    assert variant["sku"] == "BSSECDB00042NOC01M0030"
+    assert variant["variation"] == "Color: N / Beauty Milliliter: 30ml"
+    assert variant["sale_price"] == 11.79
+    assert variant["original_price"] == 14.74  # rrp, not Magento's oldPrice (11.79)
+    assert variant["stock"] == "In Stock"
+
+
+def test_real_page_detail_rows_and_no_barcode():
+    parsed = scrape.parse_product_page(_read("real_cosdebaha_configurable.html"))
+    assert parsed["attributes"]["Product Unit"] == "30ml"
+    assert parsed["attributes"]["Product Type"] == "Essence & Serums"
+    assert parsed["gtin"] is None  # Stylevana doesn't publish barcodes
+    [row] = scrape.build_rows("https://example/cos-de-baha.html", parsed)
+    assert row["brand"] == "Cos De BAHA"
+    assert row["stock"] == "In Stock"
+    assert row["original_price"] == 14.74
+    assert row["cart_price"] == 11.79
+
+
 # --- Product page (SYNTHETIC stock-Magento fixtures, see file headers) ------
 
 def test_configurable_product_variants_and_gtin_table():

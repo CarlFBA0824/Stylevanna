@@ -319,17 +319,27 @@ def variants_from_configurable(config: Dict[str, Any]) -> List[Dict[str, Any]]:
                 labels.setdefault(str(child_id), []).append(f"{attr_label}: {option.get('label')}")
 
     sku_map = config.get("sku") if isinstance(config.get("sku"), dict) else {}
+    stock_map = config.get("optionStock") if isinstance(config.get("optionStock"), dict) else {}
+    parent_rrp = _to_price(((config.get("prices") or {}).get("rrp") or {}).get("amount"))
     variants = []
     for child_id, prices in (config.get("optionPrices") or {}).items():
         sale = _to_price((prices.get("finalPrice") or {}).get("amount"))
-        was = _to_price((prices.get("oldPrice") or {}).get("amount"))
+        # Stylevana's "Was" price is the theme's rrp; Magento's oldPrice is
+        # just the final price again. Seen on the real page: oldPrice 11.79,
+        # rrp 14.74, finalPrice 11.79.
+        was = (
+            _to_price((prices.get("rrp") or {}).get("amount"))
+            or _to_price((prices.get("oldPrice") or {}).get("amount"))
+            or parent_rrp
+        )
         variants.append(
             {
                 "child_id": str(child_id),
                 "variation": " / ".join(labels.get(str(child_id), [])) or "Default",
                 "sku": sku_map.get(str(child_id)),
-                "original_price": was or sale,
+                "original_price": was if was and sale and was > sale else sale,
                 "sale_price": sale,
+                "stock": (stock_map.get(str(child_id)) or {}).get("label"),
             }
         )
     return variants
@@ -365,14 +375,21 @@ def _first_gtin(obj: Dict[str, Any]) -> Optional[str]:
 
 
 def _attribute_table(soup: BeautifulSoup) -> Dict[str, str]:
-    """Label -> value pairs from Magento's "More Information" table
-    (#product-attribute-specs-table: <th class="col label"> / <td class="col data">)."""
+    """Label -> value pairs from the product's attribute list: stock Magento's
+    "More Information" table (<th class="col label"> / <td class="col data">)
+    or Stylevana's Detail tab (<p class="attribute-row"> with
+    <span class="col label">Product Unit : </span><span class="col value">)."""
     pairs: Dict[str, str] = {}
     for row in soup.select("#product-attribute-specs-table tr, .additional-attributes tr"):
         label = row.find("th")
         value = row.find("td")
         if label and value:
             pairs[label.get_text(" ", strip=True)] = value.get_text(" ", strip=True)
+    for row in soup.select("p.attribute-row"):
+        label = row.select_one(".col.label")
+        value = row.select_one(".col.value")
+        if label and value:
+            pairs.setdefault(label.get_text(" ", strip=True).rstrip(" :"), value.get_text(" ", strip=True))
     return pairs
 
 
@@ -432,6 +449,11 @@ def parse_product_page(html: str) -> Dict[str, Any]:
 
     configurable = find_configurable_config(init_blocks)
     price_config = find_price_config(init_blocks)
+
+    brand_node = soup.select_one("a.product-brand, .product-brand")
+    brand = brand_node.get_text(" ", strip=True) if brand_node else None
+    if not brand and configurable:
+        brand = (configurable.get("productInfo") or {}).get("brand")
     if configurable:
         variants = variants_from_configurable(configurable)
         price_source = "configurable_json"
@@ -458,12 +480,14 @@ def parse_product_page(html: str) -> Dict[str, Any]:
                 "sku": sku,
                 "original_price": was if was and sale and was > sale else sale,
                 "sale_price": sale,
+                "stock": None,
             }
         ]
 
     gtin, gtin_source = find_gtin(soup, jsonld, attributes)
     return {
         "name": name,
+        "brand": brand,
         "sku": sku,
         "product_id": str(product_id) if product_id else None,
         "gtin": gtin,
@@ -497,6 +521,7 @@ def build_rows(
         rows.append(
             {
                 "product_name": parsed.get("name") or tile.get("product_name") or product_url,
+                "brand": parsed.get("brand"),
                 "product_url": product_url,
                 "variation": v.get("variation") or "Default",
                 "sku": v.get("sku") or (parsed.get("sku") if single else None),
@@ -505,6 +530,7 @@ def build_rows(
                 "cart_price": cart_price,
                 "cart_discount": f"{discount_code} ({discount_pct:g}% off, assumed)" if discount_pct else None,
                 "currency": "USD",
+                "stock": v.get("stock"),
                 "gtin": parsed.get("gtin") if single else None,
                 "product_id": v.get("child_id") or parsed.get("product_id") or tile.get("product_id"),
                 "gtin_source": parsed.get("gtin_source") if single else None,
@@ -529,7 +555,7 @@ def scrape_product(
         (save_html_dir / slug).write_text(response.text, encoding="utf-8")
     parsed = parse_product_page(response.text)
     if not parsed["gtin"]:
-        logger.warning("No GTIN found on %s", product_url)
+        logger.debug("No GTIN found on %s", product_url)
     return build_rows(product_url, parsed, tile, discount_pct, discount_code)
 
 
@@ -540,7 +566,7 @@ def scrape_product(
 FIELDNAMES = [
     "product_name", "product_url", "variation", "sku",
     "original_price", "sale_price", "cart_price", "cart_discount",
-    "currency", "gtin", "product_id", "gtin_source",
+    "currency", "gtin", "product_id", "gtin_source", "brand", "stock",
 ]
 
 

@@ -1,7 +1,7 @@
 # Stylevana Scraper
 
 Scrapes [stylevana.com/en_US](https://www.stylevana.com/en_US/) (Magento 2)
-product **variations**, **prices**, and **GTIN**, using
+product **variations**, **prices**, **SKUs**, and **brand** using
 [ZenRows](https://www.zenrows.com/) for proxying/JS rendering. Built from the
 same layout as the `Moida-Scraper` repo (one row per variation, same CSV
 columns), so the output drops straight into `master.py` for
@@ -29,40 +29,39 @@ HTML, pasted in by hand.
 - **Cloudflare** analytics are present. A bot check hasn't been seen yet but
   is likely, so every fetch goes through ZenRows' premium proxy.
 
-**Not yet confirmed:**
+**Confirmed from real product pages** (SKIN1004 28868, Cos De BAHA 24288):
 
-1. **The product page itself**, which is where the barcode lives. The parser
-   uses stock Magento 2 sources, in this order:
-   - the configurable `jsonConfig`/`spConfig`, for per-shade or per-size prices
-   - the `priceBox` `priceConfig`, plus the theme's `rrpPrice` span, for
-     simple products
-   - JSON-LD `gtin*`
-   - the "More Information" attribute table (`#product-attribute-specs-table`),
-     using a Barcode/EAN/UPC/JAN label
-   - as a last resort, a labelled `Barcode: 880…` pattern in the page text
+- **Stylevana publishes no barcode.** There is no GTIN, EAN, UPC or JAN
+  anywhere on the page: no Product JSON-LD (only Organization), and nothing
+  in the attribute rows, the dataLayer, `spConfig` or the description. So
+  `gtin` will be blank. The parser still checks JSON-LD, the attribute rows
+  and labelled `Barcode: 880…` text, in case that changes.
+- **Configurable products:** the `spConfig` x-magento-init block under
+  `#product_addtocart_form` has a `sku` map (child id → child SKU),
+  `optionPrices` (`finalPrice` is the current price; `rrp` is the "Was"
+  price; `oldPrice` just repeats the final price), `optionStock`, and
+  `productInfo.brand`.
+- **Detail tab:** `p.attribute-row` holds `span.col.label` and
+  `span.col.value`, e.g. Product Unit : 30ml.
+- **Brand:** `a.product-brand`.
+- `tests/fixtures/real_cosdebaha_configurable.html` is a trimmed copy of a
+  real page.
 
-   Each row's `gtin_source` column records which one matched.
-   `tests/fixtures/synthetic_magento_*.html` are **synthetic** stock-Magento
-   pages. They test the parsing logic, not Stylevana's real markup.
-2. **Listing pagination:** whether brand and category pages use Magento's
-   standard `?p=N`. Discovery stops as soon as a page adds no new product ids,
-   which also covers Magento re-serving the last page.
+**Not yet confirmed:** whether listing pagination is Magento's standard
+`?p=N`. Discovery stops as soon as a page adds no new product ids, which also
+covers Magento re-serving the last page.
 
-**Before a full run**, do a smoke test and look at `gtin_source` and the
-prices:
+**Before a full run**, do a smoke test:
 
 ```bash
-python scrape.py --url https://www.stylevana.com/en_US/skin1004-madagascar-centella-hyalu-cica-water-fit-sun-serum-spf50-pa-50ml28868.html --debug
-python scrape.py --brand medicube --limit 3 --save-html html_dump
+python scrape.py --url https://www.stylevana.com/en_US/cos-de-baha-azelaic-acid-serum-az15-30ml24288.html --debug
+python scrape.py --brand medicube --limit 3
 ```
-
-If GTINs come back blank, send one of the saved `html_dump/` pages so the
-parser can be pointed at the right spot.
 
 ## Pricing
 
-- `original_price` is the "Was" price (the theme's `rrpPrice`), or the sale
-  price when the product isn't discounted.
+- `original_price` is the "Was" price (the theme's `rrp` / `rrpPrice`), or
+  the sale price when the product isn't discounted.
 - `sale_price` is the current product-page price.
 - `cart_price` is `sale_price * (1 - --discount-pct/100)`. The default
   discount is 0, so `cart_price` equals `sale_price`.
@@ -114,7 +113,10 @@ python scrape.py --url <product url> --debug     # one product, show every parse
 Results are written to `output/stylevana_<slug>_<timestamp>.csv` and `.json`,
 one row per **variation**:
 
-`product_name, product_url, variation, sku, original_price, sale_price, cart_price, cart_discount, currency, gtin, product_id, gtin_source`
+`product_name, product_url, variation, sku, original_price, sale_price, cart_price, cart_discount, currency, gtin, product_id, gtin_source, brand, stock`
+
+`sku` is the child SKU for each variation, e.g. `BSSECDB00042NOC01M0030`.
+`stock` is Stylevana's label, e.g. "In Stock".
 
 A configurable product's page-level barcode can't be tied to a specific shade,
 so on a multi-variant product `gtin` is left blank instead of being copied
