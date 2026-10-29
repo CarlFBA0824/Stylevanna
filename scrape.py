@@ -607,6 +607,11 @@ def main() -> None:
 
     if args.url:
         response = client.fetch(args.url, js_render=js_render, premium_proxy=True, wait_ms=3000 if js_render else None)
+        if save_dir:
+            save_dir.mkdir(parents=True, exist_ok=True)
+            slug = urllib.parse.urlsplit(args.url).path.rstrip("/").rsplit("/", 1)[-1]
+            (save_dir / slug).write_text(response.text, encoding="utf-8")
+            logger.info("Saved page HTML to %s", save_dir / slug)
         parsed = parse_product_page(response.text)
         if args.debug:
             print("--- Parsed sources ---")
